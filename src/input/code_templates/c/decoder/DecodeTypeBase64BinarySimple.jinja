@@ -8,6 +8,41 @@
 {%- if type_option == 1 %}
 {{ indent * (level + 2) }}{{ type_value }}_isUsed = 1u;
 {%- endif %}
+{%- if generate_xml_output %}
+{{ indent * (level + 2) }}// XML: emit base64 encoded value
+{{ indent * (level + 2) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{{ indent * (level + 2) }}{
+{{ indent * (level + 3) }}static const char encoding_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+{{ indent * (level + 3) }}static const int mod_table[] = {0, 2, 1};
+{{ indent * (level + 3) }}size_t output_length = 4 * (({{ type_content_len }} + 2) / 3);
+{{ indent * (level + 3) }}unsigned char* encoded_data = (unsigned char*)malloc(output_length + 1);
+{{ indent * (level + 3) }}if (encoded_data != NULL)
+{{ indent * (level + 3) }}{
+{{ indent * (level + 4) }}size_t i, j;
+{{ indent * (level + 4) }}for (i = 0, j = 0; i < {{ type_content_len }};)
+{{ indent * (level + 4) }}{
+{{ indent * (level + 5) }}uint32_t a = i < {{ type_content_len }} ? {{ type_content }}[i++] : 0;
+{{ indent * (level + 5) }}uint32_t b = i < {{ type_content_len }} ? {{ type_content }}[i++] : 0;
+{{ indent * (level + 5) }}uint32_t c = i < {{ type_content_len }} ? {{ type_content }}[i++] : 0;
+{{ indent * (level + 5) }}uint32_t triple = (a << 16) + (b << 8) + c;
+{{ indent * (level + 5) }}encoded_data[j++] = encoding_table[(triple >> 18) & 0x3F];
+{{ indent * (level + 5) }}encoded_data[j++] = encoding_table[(triple >> 12) & 0x3F];
+{{ indent * (level + 5) }}encoded_data[j++] = encoding_table[(triple >> 6) & 0x3F];
+{{ indent * (level + 5) }}encoded_data[j++] = encoding_table[triple & 0x3F];
+{{ indent * (level + 4) }}}
+{{ indent * (level + 4) }}for (i = 0; i < (size_t)mod_table[{{ type_content_len }} % 3]; i++)
+{{ indent * (level + 4) }}{
+{{ indent * (level + 5) }}encoded_data[output_length - 1 - i] = '=';
+{{ indent * (level + 4) }}}
+{{ indent * (level + 4) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, (char*)encoded_data, output_length);
+{{ indent * (level + 4) }}free(encoded_data);
+{{ indent * (level + 3) }}}
+{{ indent * (level + 3) }}else
+{{ indent * (level + 3) }}{
+{{ indent * (level + 4) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "(base64-alloc-failed)", 21);
+{{ indent * (level + 3) }}}
+{{ indent * (level + 2) }}}
+{%- endif %}
 {{ indent * (level + 2) }}grammar_id = {{ next_grammar_id }};
 {{ indent * (level + 1) }}}
 {{ indent * level }}}

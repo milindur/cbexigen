@@ -12,6 +12,20 @@
 {{ indent * (level + 3) }}{
 {{ indent * (level + 4) }}{{ type_value }}[{{ type_array_len }}] = ({{ type_enum }})value;
 {{ indent * (level + 4) }}{{ type_array_len }}++;
+{%- if generate_xml_output %}
+{{ indent * (level + 4) }}// XML: emit value
+{{ indent * (level + 4) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- if enum_values %}
+{{ indent * (level + 4) }}switch (value) {
+{%- for ev in enum_values %}
+{{ indent * (level + 4) }}case {{ loop.index0 }}: xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{{ ev }}", {{ ev|length }}); break;
+{%- endfor %}
+{{ indent * (level + 4) }}default: { char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "%u", (unsigned int)value); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); } break;
+{{ indent * (level + 4) }}}
+{%- else %}
+{{ indent * (level + 4) }}{ char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "%u", (unsigned int)value); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); }
+{%- endif %}
+{%- endif %}
 {{ indent * (level + 3) }}}
 {{ indent * (level + 2) }}}
 {{ indent * (level + 2) }}else

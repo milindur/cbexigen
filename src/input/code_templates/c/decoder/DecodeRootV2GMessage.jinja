@@ -1,12 +1,21 @@
 {{ function_comment }}
-int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ parameter_name }})
+int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ parameter_name }}{% if generate_xml_output %}, char* xmlOut, size_t xmlOut_size{% endif %})
 {
 {{ indent }}uint32_t eventCode;
 {{ indent }}int error = exi_header_read_and_check(stream);
+{%- if generate_xml_output %}
+
+{{ indent }}size_t xmlOut_pos = strlen(xmlOut);
+{%- endif %}
 
 {{ indent }}if (error == EXI_ERROR__NO_ERROR)
 {{ indent }}{
 {{ indent * 2 }}init_{{ struct_type }}({{ parameter_name }});
+{%- if generate_xml_output %}
+
+{{ indent * 2 }}// XML: write XML declaration
+{{ indent * 2 }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>", 38);
+{%- endif %}
 
 {{ indent * 2 }}error = exi_basetypes_decoder_nbit_uint(stream, {{ bits_to_encode }}, &eventCode);
 {{ indent * 2 }}if (error == EXI_ERROR__NO_ERROR)
@@ -15,7 +24,24 @@ int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ pa
 {{ indent * 3     }}{
 {{ indent * 3     }}case 0:
 {{ indent * 3     }}case {{ parameter_index }}:
-{{ indent * 4         }}error = {{ function }}(stream, &{{ parameter }});
+{%- if generate_xml_output and xml_root_name is defined and xml_root_name %}
+{%- set xmlns_attrs = [] %}
+{%- if xmlns_declarations is defined %}
+{%- for prefix, uri in xmlns_declarations %}
+{%- set _ = xmlns_attrs.append(' xmlns:' + prefix + '="' + uri + '"') %}
+{%- endfor %}
+{%- endif %}
+{%- set open_tag = '<' + xml_root_name + xmlns_attrs|join('') + '>' %}
+{%- set open_tag_c = open_tag|replace('"', '\\"') %}
+{{ indent * 4         }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "{{ open_tag_c }}", {{ open_tag|length }});
+{%- endif %}
+{{ indent * 4         }}error = {{ function }}(stream, &{{ parameter }}{% if generate_xml_output %}, xmlOut, xmlOut_size, &xmlOut_pos{% endif %});
+{%- if generate_xml_output and xml_root_name is defined and xml_root_name %}
+{{ indent * 4         }}if (error == 0)
+{{ indent * 4         }}{
+{{ indent * 5             }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "</{{ xml_root_name }}>", {{ xml_root_name|length + 3 }});
+{{ indent * 4         }}}
+{%- endif %}
 {{ indent * 4         }}break;
 {{ indent * 3     }}default:
 {{ indent * 4         }}error = EXI_ERROR__UNSUPPORTED_SUB_EVENT;

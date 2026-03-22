@@ -2,6 +2,14 @@
 {{ indent * level }}if ({{ type_array_len }} < {{ type_define }})
 {{ indent * level }}{
 {{ indent * (level + 1) }}error = decode_exi_type_uint16(stream, &{{ type_array }}[{{ type_array_len }}++]);
+{%- if generate_xml_output %}
+{{ indent * (level + 1) }}if (error == 0)
+{{ indent * (level + 1) }}{
+{{ indent * (level + 2) }}// XML: emit value
+{{ indent * (level + 2) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{{ indent * (level + 2) }}{ char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "%u", {{ type_array }}[{{ type_array_len }} - 1]); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); }
+{{ indent * (level + 1) }}}
+{%- endif %}
 {{ indent * level }}}
 {{ indent * level }}else
 {{ indent * level }}{

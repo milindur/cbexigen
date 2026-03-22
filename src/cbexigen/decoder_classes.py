@@ -103,9 +103,112 @@ class ExiDecoderCode(ExiBaseCoderCode):
             self.__fragments = get_fragment_parameter_for_schema(self.__schema_prefix)
             self.__generate_fragment = len(self.__fragments) > 0
 
+        self.__generate_xml = self.config['generate_xml_output']
+        self.__xml_ns_map = {}  # namespace URI → prefix (e.g. "ns1")
+        self.__element_form_default = getattr(analyzer_data, 'element_form_default', 'unqualified')
+
         self.__include_content = ''
         self.__code_content = ''
         self.__function_content = ''
+
+    # ---------------------------------------------------------------------------
+    # XML output helper methods
+    # ---------------------------------------------------------------------------
+    def __build_xml_namespace_map(self):
+        """Collect all unique namespace URIs and assign ns1, ns2, ... prefixes."""
+        uris = set()
+        for elem in self.analyzer_data.generate_elements:
+            for particle in elem.particles:
+                if particle.namespace:
+                    uris.add(particle.namespace)
+            # also check type namespace
+            ns = tools.extract_namespace_uri(elem.type)
+            if ns:
+                uris.add(ns)
+        for elem in self.analyzer_data.root_elements:
+            ns = tools.extract_namespace_uri(elem.name)
+            if ns:
+                uris.add(ns)
+        for frag in self.analyzer_data.known_fragments.values():
+            if frag.namespace:
+                uris.add(frag.namespace)
+        self.__xml_ns_map = {uri: f'ns{i}' for i, uri in enumerate(sorted(uris), 1)}
+
+    def __xml_prefixed_name(self, namespace_uri, local_name):
+        """Return nsN:localName for a namespace URI, or just localName if no namespace."""
+        if namespace_uri and namespace_uri in self.__xml_ns_map:
+            return f'{self.__xml_ns_map[namespace_uri]}:{local_name}'
+        return local_name
+
+    def __xml_xmlns_declarations(self):
+        """Return list of (prefix, uri) tuples for xmlns attributes."""
+        return [(prefix, uri) for uri, prefix in sorted(self.__xml_ns_map.items(), key=lambda x: x[1])]
+
+    def __xml_element_name(self, particle):
+        """Build XML element name like ns1:Name.
+        For schemas with elementFormDefault='unqualified', local elements are not prefixed."""
+        if self.__element_form_default != 'qualified' and not particle.is_global:
+            return particle.name
+        return self.__xml_prefixed_name(particle.namespace, particle.name)
+
+    def __xml_open_tag_code(self, xml_name, level):
+        """Generate C code for XML open tag (before element decode)"""
+        tag = f'<{xml_name}'
+        tag_len = len(tag)
+        ind = self.indent
+        lines = []
+        lines.append(f'{ind * level}// XML: open tag')
+        lines.append(f'{ind * level}if (*xmlOut_pos > 0 && xmlOut[*xmlOut_pos - 1] != \'>\')')
+        lines.append(f'{ind * level}{{')
+        lines.append(f'{ind * (level + 1)}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);')
+        lines.append(f'{ind * level}}}')
+        lines.append(f'{ind * level}{{')
+        lines.append(f'{ind * (level + 1)}size_t xml_tag_start = *xmlOut_pos;')
+        lines.append(f'{ind * (level + 1)}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{tag}", {tag_len});')
+        lines.append(f'{ind * (level + 1)}(void)xml_tag_start;')
+        return '\n'.join(lines)
+
+    def __xml_close_tag_code(self, xml_name, level):
+        """Generate C code for XML close tag (after element decode)"""
+        close_tag = f'</{xml_name}>'
+        close_tag_len = len(close_tag)
+        ind = self.indent
+        lines = []
+        lines.append(f'{ind * (level + 1)}// XML: close tag')
+        lines.append(f'{ind * (level + 1)}{{')
+        lines.append(f'{ind * (level + 2)}int xml_closed = 0;')
+        lines.append(f'{ind * (level + 2)}size_t i;')
+        lines.append(f'{ind * (level + 2)}for (i = xml_tag_start; i < *xmlOut_pos; i++)')
+        lines.append(f'{ind * (level + 2)}{{')
+        lines.append(f'{ind * (level + 3)}if (xmlOut[i] == \'>\') {{ xml_closed = 1; break; }}')
+        lines.append(f'{ind * (level + 2)}}}')
+        lines.append(f'{ind * (level + 2)}if (!xml_closed) {{ xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1); }}')
+        lines.append(f'{ind * (level + 1)}}}')
+        lines.append(f'{ind * (level + 1)}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{close_tag}", {close_tag_len});')
+        lines.append(f'{ind * level}}}')
+        return '\n'.join(lines)
+
+    def __xml_attribute_open_code(self, xml_name, level):
+        """Generate C code for XML attribute prefix (writes ' name="' into parent's open tag)"""
+        attr_prefix = f' {xml_name}="'
+        attr_prefix_len = len(attr_prefix)
+        attr_prefix_c = attr_prefix.replace('"', '\\"')
+        ind = self.indent
+        return (f'{ind * level}// XML: attribute\n'
+                f'{ind * level}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{attr_prefix_c}", {attr_prefix_len});')
+
+    def __xml_attribute_close_code(self, level):
+        """Generate C code for XML attribute suffix (writes '"')"""
+        ind = self.indent
+        return f'{ind * level}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "\\"", 1);'
+
+    def __xml_open_close_code(self, particle, xml_name, level):
+        """Return (open, close) XML tag code, dispatching to attribute or element variants."""
+        if particle.is_attribute:
+            return (self.__xml_attribute_open_code(xml_name, level),
+                    self.__xml_attribute_close_code(level))
+        return (self.__xml_open_tag_code(xml_name, level),
+                self.__xml_close_tag_code(xml_name, level))
 
     # ---------------------------------------------------------------------------
     # generator helper functions
@@ -114,7 +217,10 @@ class ExiDecoderCode(ExiBaseCoderCode):
         content = 'static '
         content += 'int ' + self.config['decode_function_prefix'] + self.parameters['prefix'] + element_name + '('
         content += 'exi_bitstream_t* stream, '
-        content += 'struct ' + self.parameters['prefix'] + element_name + '* ' + element_name + ')'
+        content += 'struct ' + self.parameters['prefix'] + element_name + '* ' + element_name
+        if self.config['generate_xml_output']:
+            content += ', char* xmlOut, size_t xmlOut_size, size_t* xmlOut_pos'
+        content += ')'
 
         if is_forward_declaration:
             content += ';'
@@ -316,6 +422,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_array=type_array,
                                      type_array_len=type_array_len,
                                      decode_fn=decode_fn,
+                                     decode_is_generated=False,
                                      type_value=type_array,
                                      type_option=detail.particle.is_optional,
                                      next_grammar_id=next_grammar_id,
@@ -407,6 +514,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_chars_size=type_chars_size,
                                      type_option=detail.particle.is_optional,
                                      type_simple=type_simple,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      type_array=detail.particle.max_occurs > 1,
                                      type_array_length=f'{element_typename}->{detail.particle.name}.arrayLen',
                                      type_array_define=detail.particle.prefixed_define_for_array,
@@ -441,6 +549,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_array_len_schema=array_length_from_schema,
                                      type_loop_breakout=type_loop_breakout,
                                      decode_fn=decode_fn,
+                                     decode_is_generated=True,
                                      next_grammar_id=next_grammar_id,
                                      next_grammar_id_breakout=next_grammar_id_breakout,
                                      indent=self.indent, level=level)
@@ -499,6 +608,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_option=detail.particle.is_optional,
                                      type_value=type_value,
                                      type_enum=type_enum,
+                                     enum_values=detail.particle.enum_values,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -519,6 +629,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_attribute=detail.particle.is_attribute,
                                      type_value=type_value,
                                      type_enum=type_enum,
+                                     enum_values=detail.particle.enum_values,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -618,6 +729,13 @@ class ExiDecoderCode(ExiBaseCoderCode):
                 log_write_error(f"Unhandled type: '{detail.particle.name}': '{detail.particle.type_short}', " +
                                 f"base type '{detail.particle.typename}'")
 
+        # wrap with XML open/close tags if enabled
+        if self.__generate_xml and detail.particle is not None and detail.flag != GrammarFlag.END:
+            xml_name = self.__xml_element_name(detail.particle)
+            if xml_name:
+                xml_open, xml_close = self.__xml_open_close_code(detail.particle, xml_name, level)
+                type_content = xml_open + '\n' + type_content + '\n' + xml_close
+
         return type_content
 
     def __get_event_content(self, grammar: ElementGrammar, level):
@@ -674,6 +792,21 @@ class ExiDecoderCode(ExiBaseCoderCode):
                     hits = [x for x in element.particles if x.name == name]
                     type_content = self.__get_content_decode_namespace_element(element.typename, hits[0],
                                                                                next_grammar, level + 3)
+
+                    # wrap with XML open/close tags if enabled
+                    if self.__generate_xml:
+                        particle = hits[0]
+                        # namespace element particles may lack namespace after
+                        # empty-content-element expansion; derive it from the
+                        # parent element's type namespace
+                        if not particle.namespace and element.type:
+                            ns = tools.extract_namespace_uri(element.type)
+                            xml_name = self.__xml_prefixed_name(ns, particle.name)
+                        else:
+                            xml_name = self.__xml_element_name(particle)
+                        if xml_name:
+                            xml_open, xml_close = self.__xml_open_close_code(particle, xml_name, level + 3)
+                            type_content = xml_open + '\n' + type_content + '\n' + xml_close
 
                     event_comment = f'// Event: {hits[0].name}'
                     temp = self.generator.get_template('BaseDecodeCaseEventId.jinja')
@@ -780,6 +913,11 @@ class ExiDecoderCode(ExiBaseCoderCode):
         elif len(self.analyzer_data.root_elements) > 1:
             decode_fn = []
             for elem in self.analyzer_data.root_elements:
+                # build XML element name from the element's namespace
+                xml_name = ''
+                if self.__generate_xml:
+                    xml_name = self.__xml_prefixed_name(tools.extract_namespace_uri(elem.name), elem.name_short)
+
                 if self.__is_iso20:
                     # TODO: The following if filters the simple types DigestValue, MgmtData and KeyName.
                     #       Simple types has to be decoded directly and not with an decoding function.
@@ -789,16 +927,20 @@ class ExiDecoderCode(ExiBaseCoderCode):
                     prefix_name_short = f'{elem.prefix}{elem.name_short}'
                     if elem.type_definition == 'complex':
                         decode_fn.append([CONFIG_PARAMS['decode_function_prefix'] + elem.prefixed_type,
-                                          parameter_name + '->' + elem.name_short])
+                                          parameter_name + '->' + elem.name_short,
+                                          xml_name])
                     else:
-                        decode_fn.append([f'{CONFIG_PARAMS["decode_function_prefix"]}{prefix_name_short}', ''])
+                        decode_fn.append([f'{CONFIG_PARAMS["decode_function_prefix"]}{prefix_name_short}', '',
+                                          xml_name])
                 else:
                     if elem.typename in self.analyzer_data.schema_builtin_types:
                         decode_fn.append([f'{CONFIG_PARAMS["decode_function_prefix"]}{elem.prefix}{elem.name_short}',
-                                          f'{parameter_name}->{elem.prefix}{elem.name_short}'])
+                                          f'{parameter_name}->{elem.prefix}{elem.name_short}',
+                                          xml_name])
                     else:
                         decode_fn.append([CONFIG_PARAMS['decode_function_prefix'] + elem.prefixed_type,
-                                          parameter_name + '->' + elem.typename])
+                                          parameter_name + '->' + elem.typename,
+                                          xml_name])
 
             decode_fn.sort()
 
@@ -811,6 +953,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                         init_function=init_fn,
                                         bits_to_read=bits,
                                         decode_functions=decode_fn,
+                                        xmlns_declarations=self.__xml_xmlns_declarations(),
                                         indent=self.indent)
             root_content += '\n'
         else:
@@ -830,6 +973,13 @@ class ExiDecoderCode(ExiBaseCoderCode):
                     parameter_index += 1
 
                 bits = tools.get_bit_count_for_value(len(self.analyzer_data.namespace_elements[name_short]))
+                # build XML root element name for V2G_Message
+                xml_root_name = ''
+                if self.__generate_xml:
+                    root_elem = self.analyzer_data.root_elements[0]
+                    xml_root_name = self.__xml_prefixed_name(
+                        tools.extract_namespace_uri(root_elem.name), root_elem.name_short)
+
                 temp = self.generator.get_template('DecodeRootV2GMessage.jinja')
                 root_content += temp.render(function_comment=root_comment,
                                             function_name=fn_name,
@@ -837,6 +987,8 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                             bits_to_encode=bits,
                                             function=function,
                                             parameter=parameter, parameter_index=parameter_index,
+                                            xmlns_declarations=self.__xml_xmlns_declarations(),
+                                            xml_root_name=xml_root_name,
                                             indent=self.indent)
                 root_content += '\n'
             else:
@@ -867,12 +1019,15 @@ class ExiDecoderCode(ExiBaseCoderCode):
 
         decode_fn = []
         for fragment in self.analyzer_data.known_fragments.values():
+            xml_name = ''
+            if self.__generate_xml and fragment.namespace:
+                xml_name = self.__xml_prefixed_name(fragment.namespace, fragment.name)
             if fragment.name in self.__fragments:
                 function = f'{CONFIG_PARAMS["decode_function_prefix"]}{self.__schema_prefix}{fragment.type}'
                 parameter = f'{parameter_name}->{fragment.name}'
-                decode_fn.append([fragment.name, fragment.namespace, function, parameter])
+                decode_fn.append([fragment.name, fragment.namespace, function, parameter, xml_name])
             else:
-                decode_fn.append([fragment.name, fragment.namespace, '', ''])
+                decode_fn.append([fragment.name, fragment.namespace, '', '', xml_name])
 
         decode_fn.sort()
         end_fragment = len(decode_fn) + 1
@@ -904,12 +1059,15 @@ class ExiDecoderCode(ExiBaseCoderCode):
         decode_fn = []
         for fragment in self.analyzer_data.known_fragments.values():
             if 'xmldsig' in fragment.namespace.casefold():
+                xml_name = ''
+                if self.__generate_xml and fragment.namespace:
+                    xml_name = f'{{{fragment.namespace}}}{fragment.name}'
                 if fragment.type in self.analyzer_data.known_elements.values():
                     function = f'{CONFIG_PARAMS["decode_function_prefix"]}{self.__schema_prefix}{fragment.type}'
                     parameter = f'{parameter_name}->{fragment.name}'
-                    decode_fn.append([fragment.name, fragment.namespace, function, parameter])
+                    decode_fn.append([fragment.name, fragment.namespace, function, parameter, xml_name])
                 else:
-                    decode_fn.append([fragment.name, fragment.namespace, '', ''])
+                    decode_fn.append([fragment.name, fragment.namespace, '', '', xml_name])
 
         decode_fn.sort()
         end_fragment = len(decode_fn) + 1
@@ -947,9 +1105,29 @@ class ExiDecoderCode(ExiBaseCoderCode):
                             f'{self.__class__.__name__}.{self.generate_file.__name__}')
             return
 
+        # add extra includes for XML output
+        if self.__generate_xml:
+            for inc in ['string.h', 'stdio.h', 'stdlib.h', 'inttypes.h']:
+                if inc not in self.c_params['include_std_lib']:
+                    self.c_params['include_std_lib'].append(inc)
+
         self.__include_content = tools_generator.get_includes_content(self.c_params)
         self.__code_content = ''
         self.__function_content = ''
+
+        # build namespace prefix map and add xml_write helper function if XML output is enabled
+        if self.__generate_xml:
+            self.__build_xml_namespace_map()
+        if self.__generate_xml:
+            self.__code_content += '\n'
+            self.__code_content += ('/* best-effort XML serializer: silently truncates on overflow */\n')
+            self.__code_content += ('static inline void xml_write(char* xmlOut, size_t xmlOut_size, '
+                                    'size_t* pos, const char* str, size_t len) {\n')
+            self.__code_content += '    if (*pos + len >= xmlOut_size) return;\n'
+            self.__code_content += '    memcpy(xmlOut + *pos, str, len);\n'
+            self.__code_content += '    *pos += len;\n'
+            self.__code_content += '    xmlOut[*pos] = \'\\0\';\n'
+            self.__code_content += '}\n'
 
         analyzed_elements = {}
         static_declarations = []

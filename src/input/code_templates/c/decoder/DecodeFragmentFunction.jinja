@@ -1,7 +1,11 @@
 {{ function_comment }}
-int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ parameter_name }}) {
+int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ parameter_name }}{% if generate_xml_output %}, char* xmlOut, size_t xmlOut_size{% endif %}) {
 {{ indent }}uint32_t eventCode;
 {{ indent }}int error = exi_header_read_and_check(stream);
+{%- if generate_xml_output %}
+
+{{ indent }}size_t xmlOut_pos = strlen(xmlOut);
+{%- endif %}
 
 {{ indent }}if (error == EXI_ERROR__NO_ERROR)
 {{ indent }}{
@@ -13,12 +17,23 @@ int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ pa
 {{ indent * 3 }}error = EXI_ERROR__NOT_IMPLEMENTED_YET;
 {{ indent * 3 }}switch (eventCode)
 {{ indent * 3 }}{
-{%- for comment, namespace, function, parameter in decode_functions %}
+{%- for comment, namespace, function, parameter, xml_name in decode_functions %}
 {{ indent * 3 }}case {{ loop.index0 }}:
 {{ indent * 4 }}// {{ comment }} ({{ namespace }})
 {%- if parameter != '' %}
-{{ indent * 4 }}error = {{ function }}(stream, &{{ parameter }});
+{%- if generate_xml_output and xml_name %}
+{{ indent * 4 }}// XML: open tag
+{{ indent * 4 }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "<{{ xml_name }}>", {{ xml_name|length + 2 }});
+{%- endif %}
+{{ indent * 4 }}error = {{ function }}(stream, &{{ parameter }}{% if generate_xml_output %}, xmlOut, xmlOut_size, &xmlOut_pos{% endif %});
 {{ indent * 4 }}{{ parameter }}_isUsed = 1u;
+{%- if generate_xml_output and xml_name %}
+{{ indent * 4 }}// XML: close tag
+{{ indent * 4 }}if (error == 0)
+{{ indent * 4 }}{
+{{ indent * 5 }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "</{{ xml_name }}>", {{ xml_name|length + 3 }});
+{{ indent * 4 }}}
+{%- endif %}
 {%- endif %}
 {{ indent * 4 }}break;
 {%- endfor %}

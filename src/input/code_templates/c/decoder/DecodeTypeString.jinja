@@ -25,6 +25,13 @@
 {{ indent * (level + 4) }}if (error == 0)
 {{ indent * (level + 4) }}{
 {{ indent * (level + 5) }}{{ type_array_length }}++;
+{%- if generate_xml_output %}
+{{ indent * (level + 5) }}// XML: emit string value
+{%- if not type_is_attribute %}
+{{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
+{{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- endif %}
 {{ indent * (level + 4) }}}
 {%- else %}
 {{ indent * (level + 2) }}error = exi_basetypes_decoder_uint_16(stream, &{{ type_length }});
@@ -35,6 +42,16 @@
 {{ indent * (level + 4) }}// string tables and table partitions are not supported, so the length has to be decremented by 2
 {{ indent * (level + 4) }}{{ type_length }} -= 2;
 {{ indent * (level + 4) }}error = exi_basetypes_decoder_characters(stream, {{ type_length }}, {{ type_chars }}, {{ type_chars_size }});
+{%- if generate_xml_output %}
+{{ indent * (level + 4) }}if (error == 0)
+{{ indent * (level + 4) }}{
+{{ indent * (level + 5) }}// XML: emit string value
+{%- if not type_is_attribute %}
+{{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
+{{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{{ indent * (level + 4) }}}
+{%- endif %}
 {%- endif %}
 {{ indent * (level + 3) }}}
 {{ indent * (level + 3) }}else

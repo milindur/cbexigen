@@ -5,5 +5,18 @@
 {%- if type_option == 1 %}
 {{ indent * (level + 1) }}{{ type_value }}_isUsed = 1u;
 {%- endif %}
+{%- if generate_xml_output %}
+{{ indent * (level + 1) }}// XML: emit hex binary value
+{{ indent * (level + 1) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{{ indent * (level + 1) }}{
+{{ indent * (level + 2) }}uint16_t _i;
+{{ indent * (level + 2) }}for (_i = 0; _i < {{ type_content_len }}; _i++)
+{{ indent * (level + 2) }}{
+{{ indent * (level + 3) }}char _xv[3];
+{{ indent * (level + 3) }}snprintf(_xv, sizeof(_xv), "%02X", {{ type_content }}[_i]);
+{{ indent * (level + 3) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, 2);
+{{ indent * (level + 2) }}}
+{{ indent * (level + 1) }}}
+{%- endif %}
 {{ indent * (level + 1) }}grammar_id = {{ next_grammar_id }};
 {{ indent * level }}}

@@ -26,6 +26,11 @@ add_debug_code = 0
 generate_analysis_tree = 0
 generate_analysis_tree_20 = 0
 
+# generate XML output in decoder functions
+# adds char* xmlOut, size_t xmlOut_size parameters to decode functions
+# and inline XML tag generation during decoding (for dsV2Gshark compatibility)
+generate_xml_output = 0
+
 # root structure definitions
 root_struct_name = 'exiDocument'
 root_parameter_name = 'exiDoc'

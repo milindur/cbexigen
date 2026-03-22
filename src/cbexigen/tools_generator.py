@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from xmlschema.extras.codegen import Environment, FileSystemLoader
 from cbexigen import tools
-from cbexigen.tools_config import CONFIG_ARGS
+from cbexigen.tools_config import CONFIG_ARGS, CONFIG_PARAMS
 from cbexigen.elementData import Particle, ElementData
 
 
@@ -24,6 +24,7 @@ def get_generator():
         template_subdirs = ['', 'decoder', 'encoder']
         template_dirs = [Path(os.path.join(CONFIG_ARGS['template_dir'], subdir)) for subdir in template_subdirs]
         __GENERATOR = Environment(loader=FileSystemLoader(template_dirs))
+        __GENERATOR.globals['generate_xml_output'] = CONFIG_PARAMS.get('generate_xml_output', 0)
 
     return __GENERATOR
 

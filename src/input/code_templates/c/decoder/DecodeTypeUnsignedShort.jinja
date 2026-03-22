@@ -5,5 +5,10 @@
 {%- if type_option == 1 %}
 {{ indent * (level + 1) }}{{ type_value }}_isUsed = 1u;
 {%- endif %}
+{%- if generate_xml_output %}
+{{ indent * (level + 1) }}// XML: emit value
+{{ indent * (level + 1) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{{ indent * (level + 1) }}{ char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "%u", {{ type_value }}); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); }
+{%- endif %}
 {{ indent * (level + 1) }}grammar_id = {{ next_grammar_id }};
 {{ indent * level }}}
