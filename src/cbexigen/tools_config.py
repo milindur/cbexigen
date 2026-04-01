@@ -3,6 +3,7 @@
 # Copyright (c) 2022 - 2023 Contributors to EVerest
 
 """ Tools for the Exi Codegenerator config """
+import hashlib
 import importlib
 import io
 import urllib.request
@@ -193,6 +194,61 @@ ISO20_SCHEMAS_URL = "https://standards.iso.org/iso/15118/-20/ed-1/en/"
 ISO20_AMD1_SCHEMAS_URL = "https://standards.iso.org/iso/15118/-20/ed-1/en/Amd/1/"
 ISO20_AMD1_SCHEMAS_ZIP = "AMD1_xsdSchema.zip"
 
+SCHEMA_SHA256 = {
+    ISO2_SCHEMAS_URL: {
+        "V2G_CI_AppProtocol.xsd": "2a3ac43bf491a0a1f385e3d5130a12533248aae468492d8633a84b5b08d41a5c",
+        "V2G_CI_MsgDef.xsd": "29aff88e07efb9318d2d77126899f32e10c8dfcd02cf080981a8ec67a5e422f4",
+        "V2G_CI_MsgBody.xsd": "0dfec11f08ac12733c06f8cdb0a346d6140de6687db12f21ea29e054b684dde2",
+        "V2G_CI_MsgDataTypes.xsd": "94d364b870df776f9ced1d6a601eebb8d4cc968d2e7e4269ad454baba6e634a0",
+        "V2G_CI_MsgHeader.xsd": "0ba4ddc8bb563c3fc0e99712264958ad0db251dbf689d60d122752345566882e",
+        "xmldsig-core-schema.xsd": "838fd7675e7ef4f824c84d0142c1eaddf0a72ddd9876b8191acf751c6f19f358",
+    },
+    ISO20_SCHEMAS_URL: {
+        "V2G_CI_AC.xsd": "53b3b1a239e062a0abfc8aee0e085b024b75ddd50c964c56b385f08a8e7d327f",
+        "V2G_CI_ACDP.xsd": "ad3ea1071620119f7df3ec99c66299c91609327def4e62f5654a788fae869db2",
+        "V2G_CI_AppProtocol.xsd": "6e44b48ad7d4d645ea83fc8bafde4dad93914ee32da3e14033ac236b0c3a57ed",
+        "V2G_CI_CommonMessages.xsd": "c3e1da88621c67167ab8e50dc4bbc82f7f8a9d4674f1230d8a9a2579f1133265",
+        "V2G_CI_CommonTypes.xsd": "34d93f080f5227ad7e750ba3a194d44ddd3d2342e22a8f87925634e6cf368adc",
+        "V2G_CI_DC.xsd": "42122a5b78a1f256e4ee664c67d7c888661c38550ac4a94faea6b36f11321f72",
+        "V2G_CI_WPT.xsd": "8d7d70acd8e5926724c3f430237f3ad1d07a512145d4f31e029f8f029dd91132",
+        "xmldsig-core-schema.xsd": "35cf8197da812c85e40d57891b35c94187569ed474a2dac813ce5090dafcd35c",
+    },
+    ISO20_AMD1_SCHEMAS_URL: {
+        "V2G_CI_AC_DER_IEC.xsd": "3072d03da0945be459c716b0fecc32d21eb565162c6fd567ea3c1e0119aadf20",
+        "V2G_CI_AC_DER_SAE.xsd": "799d4c6be9d545f7832ffbecdc4bc989630b0c809d58596d68bf12d6e198b21d",
+    },
+}
+
+
+def _verify_sha256(file_path: Path, expected: str) -> bool:
+    actual = hashlib.sha256(file_path.read_bytes()).hexdigest()
+    if actual != expected:
+        print(f"SHA-256 mismatch for {file_path.name}: expected {expected[:16]}..., got {actual[:16]}...")
+        return False
+    return True
+
+
+def _check_existing_hash(file_path: Path, expected: str | None) -> bool:
+    """Check hash of existing file. Returns True if file should be skipped (ok or no hash)."""
+    if not expected:
+        return True
+    if _verify_sha256(file_path, expected):
+        return True
+    file_path.unlink()
+    print(f"Removed {file_path.name} due to hash mismatch. Re-acquiring...")
+    return False
+
+
+def _check_new_hash(file_path: Path, expected: str | None) -> bool:
+    """Verify hash after download/extract. Returns False on mismatch."""
+    if not expected:
+        print(f"Warning: no known hash for {file_path.name}, skipping verification.")
+        return True
+    if _verify_sha256(file_path, expected):
+        return True
+    file_path.unlink()
+    return False
+
 
 def _validate_https_url(url: str) -> str:
     if not url.startswith("https://"):
@@ -203,11 +259,14 @@ def _validate_https_url(url: str) -> str:
 def _download_schema_files(base_url: str, schema_names: list, target_path: Path,
                            label: str) -> bool:
     """Download schema files. Returns False if any download failed."""
+    hashes = SCHEMA_SHA256.get(base_url, {})
     for schema in schema_names:
         schema_file_path = target_path / schema
+        expected = hashes.get(schema)
         if schema_file_path.exists():
-            print(f"{label} schema {schema} is already there. Skipping it.")
-            continue
+            if _check_existing_hash(schema_file_path, expected):
+                print(f"{label} schema {schema} is already there. Skipping it.")
+                continue
         print(f"{label} schema {schema} not found! Downloading it...")
         try:
             urllib.request.urlretrieve(
@@ -216,6 +275,8 @@ def _download_schema_files(base_url: str, schema_names: list, target_path: Path,
             print(f"Download failed for {schema}: {err=}, {type(err)=}")
             if schema_file_path.exists():
                 schema_file_path.unlink()
+            return False
+        if not _check_new_hash(schema_file_path, expected):
             return False
     return True
 
@@ -251,17 +312,23 @@ def download_schemas():
             with urllib.request.urlopen(  # nosec B310  # nosemgrep
                     _validate_https_url(ISO20_AMD1_SCHEMAS_URL + ISO20_AMD1_SCHEMAS_ZIP)) as response:
                 zip_data = io.BytesIO(response.read())
+            amd1_hashes = SCHEMA_SHA256.get(ISO20_AMD1_SCHEMAS_URL, {})
             with zipfile.ZipFile(zip_data) as zf:
                 for schema in iso20_amd1_schema_files_names:
                     schema_file_path = iso20_schema_path / schema
+                    expected = amd1_hashes.get(schema)
                     if schema_file_path.exists():
-                        print(f"ISO15118-20 Amd1 schema {schema} is already there. Skipping it.")
-                        continue
+                        if _check_existing_hash(schema_file_path, expected):
+                            print(f"ISO15118-20 Amd1 schema {schema} is already there. Skipping it.")
+                            continue
                     matching = [n for n in zf.namelist() if n.endswith(schema)]
                     if matching:
                         with zf.open(matching[0]) as src, open(schema_file_path, 'wb') as dst:
                             dst.write(src.read())
                         print(f"Extracted {schema} from {ISO20_AMD1_SCHEMAS_ZIP}.")
+                        if not _check_new_hash(schema_file_path, expected):
+                            print(f"Hash verification failed for {schema} from ZIP.")
+                            return
                     else:
                         print(f"Error: {schema} not found in {ISO20_AMD1_SCHEMAS_ZIP}.")
         except Exception as err:
