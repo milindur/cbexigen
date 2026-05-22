@@ -7,7 +7,9 @@
 {%- endif %}
 {%- if generate_xml_output %}
 {{ indent * (level + 1) }}// XML: emit hex binary value
+{%- if not type_is_attribute %}
 {{ indent * (level + 1) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
 {{ indent * (level + 1) }}{
 {{ indent * (level + 2) }}uint16_t _i;
 {{ indent * (level + 2) }}for (_i = 0; _i < {{ type_content_len }}; _i++)

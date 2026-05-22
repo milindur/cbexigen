@@ -14,7 +14,9 @@
 {%- endif %}
 {%- if generate_xml_output %}
 {{ indent * (level + 3) }}// XML: emit value
+{%- if not type_is_attribute %}
 {{ indent * (level + 3) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
 {{ indent * (level + 3) }}if (value) { xml_write(xmlOut, xmlOut_size, xmlOut_pos, "true", 4); } else { xml_write(xmlOut, xmlOut_size, xmlOut_pos, "false", 5); }
 {%- endif %}
 {{ indent * (level + 2) }}}

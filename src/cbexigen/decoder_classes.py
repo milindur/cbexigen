@@ -266,6 +266,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_content_len=type_content_len,
                                      type_define=type_define,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -287,6 +288,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_content_len=type_content_len,
                                      type_define=type_define,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -327,6 +329,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_content_len=type_content_len,
                                      type_define=type_define,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      type_array=detail.particle.max_occurs > 1,
                                      type_array_length=f'{element_typename}->{detail.particle.name}.arrayLen',
                                      type_array_define=detail.particle.prefixed_define_for_array,
@@ -347,6 +350,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      bits_to_decode=detail.particle.bit_count_for_coding,
                                      type_value=type_value,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -369,6 +373,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_offset=(0 if detail.particle.integer_is_unsigned else -128),
                                      type_int=tools.TYPE_TRANSLATION_C[detail.particle.integer_base_type],
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -389,6 +394,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_offset=type_offset,
                                      type_int=tools.TYPE_TRANSLATION_C[detail.particle.integer_base_type],
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -411,6 +417,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
         decode_content = temp.render(decode_comment=decode_comment,
                                      type_value=type_value,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -459,6 +466,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
         decode_content = temp.render(decode_comment=decode_comment,
                                      type_value=type_value,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -480,6 +488,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
         decode_content = temp.render(decode_comment=decode_comment,
                                      type_value=type_value,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -497,6 +506,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
         decode_content = temp.render(decode_comment=decode_comment,
                                      type_value=type_value,
                                      type_option=detail.particle.is_optional,
+                                     type_is_attribute=detail.particle.is_attribute,
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 

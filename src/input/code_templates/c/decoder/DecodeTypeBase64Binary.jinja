@@ -15,7 +15,9 @@
 {%- endif %}
 {%- if generate_xml_output %}
 {{ indent * (level + 1) }}// XML: emit base64 encoded value
+{%- if not type_is_attribute %}
 {{ indent * (level + 1) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
 {{ indent * (level + 1) }}{
 {{ indent * (level + 2) }}static const char encoding_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 {{ indent * (level + 2) }}static const int mod_table[] = {0, 2, 1};
