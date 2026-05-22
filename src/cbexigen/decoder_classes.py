@@ -1098,7 +1098,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
             if 'xmldsig' in fragment.namespace.casefold():
                 xml_name = ''
                 if self.__generate_xml and fragment.namespace:
-                    xml_name = f'{{{fragment.namespace}}}{fragment.name}'
+                    xml_name = self.__xml_prefixed_name(fragment.namespace, fragment.name)
                 if fragment.type in self.analyzer_data.known_elements.values():
                     function = f'{CONFIG_PARAMS["decode_function_prefix"]}{self.__schema_prefix}{fragment.type}'
                     parameter = f'{parameter_name}->{fragment.name}'
