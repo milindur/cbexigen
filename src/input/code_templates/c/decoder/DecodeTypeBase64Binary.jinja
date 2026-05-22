@@ -7,9 +7,6 @@
 {{ indent * level }}error = decode_exi_type_hex_binary(stream, &{{ type_content_len }}, &{{ type_content }}[0], {{ type_define }});
 {{ indent * level }}if (error == 0)
 {{ indent * level }}{
-{%- if type_array == 1 %}
-{{ indent * (level + 1) }}{{ type_array_length }}++;
-{%- endif %}
 {%- if type_option == 1 %}
 {{ indent * (level + 1) }}{{ type_value }}_isUsed = 1u;
 {%- endif %}
@@ -49,6 +46,9 @@
 {{ indent * (level + 3) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "(base64-alloc-failed)", 21);
 {{ indent * (level + 2) }}}
 {{ indent * (level + 1) }}}
+{%- endif %}
+{%- if type_array == 1 %}
+{{ indent * (level + 1) }}{{ type_array_length }}++;
 {%- endif %}
 {{ indent * (level + 1) }}grammar_id = {{ next_grammar_id }};
 {{ indent * level }}}
