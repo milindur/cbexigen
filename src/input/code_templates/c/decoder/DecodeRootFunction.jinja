@@ -4,7 +4,7 @@ int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ pa
 {{ indent }}int error = exi_header_read_and_check(stream);
 {%- if generate_xml_output %}
 
-{{ indent }}size_t xmlOut_pos = strlen(xmlOut);
+{{ indent }}size_t xmlOut_pos = xml_init(xmlOut, xmlOut_size);
 {%- endif %}
 
 {{ indent }}if (error == 0)

@@ -1120,11 +1120,24 @@ class ExiDecoderCode(ExiBaseCoderCode):
             self.__build_xml_namespace_map()
         if self.__generate_xml:
             self.__code_content += '\n'
-            self.__code_content += ('/* best-effort XML serializer: silently truncates on overflow */\n')
+            self.__code_content += ('/* best-effort XML serializer: null/zero-sized buffers disable XML output; \n')
+            self.__code_content += ('   non-NUL-terminated input buffers are reset to empty; \n')
+            self.__code_content += ('   writes that do not fit are skipped while preserving NUL termination. */\n')
+            self.__code_content += ('static inline size_t xml_init(char* xmlOut, size_t xmlOut_size) {\n')
+            self.__code_content += '    size_t pos = 0u;\n'
+            self.__code_content += '    if (xmlOut == NULL || xmlOut_size == 0u) return 0u;\n'
+            self.__code_content += '    while (pos < xmlOut_size && xmlOut[pos] != \'\\0\') pos++;\n'
+            self.__code_content += '    if (pos == xmlOut_size) { xmlOut[0] = \'\\0\'; return 0u; }\n'
+            self.__code_content += '    return pos;\n'
+            self.__code_content += '}\n'
             self.__code_content += ('static inline void xml_write(char* xmlOut, size_t xmlOut_size, '
                                     'size_t* pos, const char* str, size_t len) {\n')
-            self.__code_content += '    if (*pos + len >= xmlOut_size) return;\n'
-            self.__code_content += '    memcpy(xmlOut + *pos, str, len);\n'
+            self.__code_content += '    size_t remaining;\n'
+            self.__code_content += '    if (xmlOut == NULL || pos == NULL || str == NULL || xmlOut_size == 0u) return;\n'
+            self.__code_content += '    if (*pos >= xmlOut_size) { *pos = xmlOut_size - 1u; xmlOut[*pos] = \'\\0\'; return; }\n'
+            self.__code_content += '    remaining = xmlOut_size - *pos - 1u;\n'
+            self.__code_content += '    if (len > remaining) return;\n'
+            self.__code_content += '    if (len > 0u) memcpy(xmlOut + *pos, str, len);\n'
             self.__code_content += '    *pos += len;\n'
             self.__code_content += '    xmlOut[*pos] = \'\\0\';\n'
             self.__code_content += '}\n'
