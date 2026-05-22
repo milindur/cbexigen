@@ -1,4 +1,43 @@
 {{ indent * level }}{{ decode_comment }}
+{%- if primitive_format is defined and primitive_format %}
+{{ indent * level }}if ({{ type_array_len }} < {{ type_define }})
+{{ indent * level }}{
+{{ indent * (level + 1) }}error = {{ decode_fn }}(stream, &{{ type_array }}[{{ type_array_len }}]);
+{{ indent * (level + 1) }}if (error == 0)
+{{ indent * (level + 1) }}{
+{%- if generate_xml_output %}
+{{ indent * (level + 2) }}// XML: emit value
+{{ indent * (level + 2) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{{ indent * (level + 2) }}{ char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "{{ primitive_format }}", {{ type_array }}[{{ type_array_len }}]); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); }
+{%- endif %}
+{{ indent * (level + 2) }}{{ type_array_len }}++;
+{{ indent * (level + 1) }}}
+{{ indent * level }}}
+{{ indent * level }}else
+{{ indent * level }}{
+{{ indent * (level + 1) }}// static array not large enough, only {{ type_define }} elements
+{{ indent * (level + 1) }}error = EXI_ERROR__ARRAY_OUT_OF_BOUNDS;
+{{ indent * level }}}
+{{ indent * level }}if (error == 0)
+{{ indent * level }}{
+{%- if type_option == 1 %}
+{{ indent * (level + 1) }}{{ type_value }}_isUsed = 1u;
+{%- endif %}
+{%- if type_loop_breakout == 1 %}
+{{ indent * (level + 1) }}// LOOP breakout code for schema given maximum, regardless of ARRAY_SIZE definition
+{{ indent * (level + 1) }}if ({{ type_array_len }} < {{ type_array_len_schema }})
+{{ indent * (level + 1) }}{
+{{ indent * (level + 2) }}grammar_id = {{ next_grammar_id }};
+{{ indent * (level + 1) }}}
+{{ indent * (level + 1) }}else
+{{ indent * (level + 1) }}{
+{{ indent * (level + 2) }}grammar_id = {{ next_grammar_id_breakout }};
+{{ indent * (level + 1) }}}
+{%- else %}
+{{ indent * (level + 1) }}grammar_id = {{ next_grammar_id }};
+{%- endif %}
+{{ indent * level }}}
+{%- else %}
 {{ indent * level }}if ({{ type_array_len }} < {{ type_define }})
 {{ indent * level }}{
 {{ indent * (level + 1) }}error = {{ decode_fn }}(stream, &{{ type_array }}[{{ type_array_len }}++]{% if generate_xml_output and decode_is_generated %}, xmlOut, xmlOut_size, xmlOut_pos{% endif %});
@@ -23,4 +62,5 @@
 {{ indent * level }}}
 {%- else %}
 {{ indent * level }}grammar_id = {{ next_grammar_id }};
+{%- endif %}
 {%- endif %}

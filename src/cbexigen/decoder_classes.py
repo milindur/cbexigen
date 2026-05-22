@@ -439,9 +439,11 @@ class ExiDecoderCode(ExiBaseCoderCode):
         if detail.particle.integer_is_unsigned:
             decode_comment = '// decode: unsigned short array'
             decode_fn = 'decode_exi_type_uint16'
+            primitive_format = '%u'
         else:
             decode_comment = '// decode: short array'
             decode_fn = 'decode_exi_type_integer16'
+            primitive_format = '%d'
         temp = self.generator.get_template(template_file)
 
         decode_content = temp.render(decode_comment=decode_comment,
@@ -450,6 +452,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_array_len=type_array_len,
                                      decode_fn=decode_fn,
                                      decode_is_generated=False,
+                                     primitive_format=primitive_format,
                                      type_value=type_array,
                                      type_option=detail.particle.is_optional,
                                      next_grammar_id=next_grammar_id,
@@ -704,7 +707,10 @@ class ExiDecoderCode(ExiBaseCoderCode):
             elif detail.particle.integer_base_type == 'int8':
                 type_content = self.__get_content_decode_byte(grammar.element_typename, detail, level)
             elif detail.particle.integer_base_type == 'int16':
-                type_content = self.__get_content_decode_short(grammar.element_typename, detail, level)
+                if detail.particle.is_array:
+                    type_content = self.__get_content_decode_short_array(grammar.element_typename, detail, level)
+                else:
+                    type_content = self.__get_content_decode_short(grammar.element_typename, detail, level)
             elif detail.particle.integer_base_type == 'int32':
                 type_content = self.__get_content_decode_int(grammar.element_typename, detail, level)
             elif detail.particle.integer_base_type == 'int64':
