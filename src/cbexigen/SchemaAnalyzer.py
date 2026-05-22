@@ -54,6 +54,7 @@ class SchemaAnalyzer(object):
 
         self.__current_schema.build()
         self.__analyzer_data.element_form_default = self.__current_schema.element_form_default
+        self.__analyzer_data.attribute_form_default = self.__current_schema.attribute_form_default
 
     def close(self):
         if self.__schema_file is not None:
@@ -331,11 +332,20 @@ class SchemaAnalyzer(object):
 
         particle.name = attribute.local_name
 
-        ns = tools.extract_namespace_uri(getattr(attribute, 'name', ''))
-        if ns:
+        is_global = getattr(attribute, 'is_global', None)
+        if callable(is_global):
+            particle.is_global = bool(is_global())
+        elif is_global is not None:
+            particle.is_global = bool(is_global)
+
+        particle.attribute_qualified = bool(getattr(attribute, 'qualified', False) or particle.is_global)
+        if particle.attribute_qualified:
+            ns = tools.extract_namespace_uri(getattr(attribute, 'name', ''))
+            if not ns:
+                ns = getattr(attribute, 'target_namespace', '') or ''
+            if not ns:
+                ns = getattr(attribute, 'default_namespace', '') or ''
             particle.namespace = ns
-        elif hasattr(attribute, 'default_namespace') and attribute.default_namespace:
-            particle.namespace = attribute.default_namespace
 
         particle.type = self.__get_type_name(attribute)
         particle.type_short = self.__get_type_name_short(attribute)

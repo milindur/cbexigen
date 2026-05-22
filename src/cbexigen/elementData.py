@@ -37,6 +37,7 @@ class Particle:
     is_enum: bool = False
     is_attribute: bool = False
     is_global: bool = False
+    attribute_qualified: bool = False
     is_simple_content: bool = False
     enum_count: int = -1
     enum_values: list = None

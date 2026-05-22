@@ -106,6 +106,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
         self.__generate_xml = self.config['generate_xml_output']
         self.__xml_ns_map = {}  # namespace URI → prefix (e.g. "ns1")
         self.__element_form_default = getattr(analyzer_data, 'element_form_default', 'unqualified')
+        self.__attribute_form_default = getattr(analyzer_data, 'attribute_form_default', 'unqualified')
 
         self.__include_content = ''
         self.__code_content = ''
@@ -163,6 +164,12 @@ class ExiDecoderCode(ExiBaseCoderCode):
     def __xml_enum_literals(self, enum_values):
         """Return enum literals as (C-escaped literal, original byte length) pairs."""
         return [(self.__c_string_literal(value), len(value)) for value in enum_values]
+
+    def __xml_attribute_name(self, particle):
+        """Build XML attribute name like ns1:Name only when the attribute is qualified."""
+        if particle.namespace and (particle.attribute_qualified or particle.is_global):
+            return self.__xml_prefixed_name(particle.namespace, particle.name)
+        return particle.name
 
     def __xml_open_tag_code(self, xml_name, level):
         """Generate C code for XML open tag (before element decode)"""
@@ -754,7 +761,8 @@ class ExiDecoderCode(ExiBaseCoderCode):
 
         # wrap with XML open/close tags if enabled
         if self.__generate_xml and detail.particle is not None and detail.flag != GrammarFlag.END:
-            xml_name = self.__xml_element_name(detail.particle)
+            xml_name = (self.__xml_attribute_name(detail.particle) if detail.particle.is_attribute
+                        else self.__xml_element_name(detail.particle))
             if xml_name:
                 xml_open, xml_close = self.__xml_open_close_code(detail.particle, xml_name, level)
                 type_content = xml_open + '\n' + type_content + '\n' + xml_close

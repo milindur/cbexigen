@@ -24,6 +24,7 @@ class AnalyzerData:
     schema_builtin_types = {}
 
     element_form_default = 'unqualified'
+    attribute_form_default = 'unqualified'
 
     add_debug_code_enabled = 0
     debug_code_current_message_id = 1
