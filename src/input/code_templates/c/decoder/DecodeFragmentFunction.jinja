@@ -22,8 +22,16 @@ int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ pa
 {{ indent * 4 }}// {{ comment }} ({{ namespace }})
 {%- if parameter != '' %}
 {%- if generate_xml_output and xml_name %}
-{{ indent * 4 }}// XML: open tag
-{{ indent * 4 }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "<{{ xml_name }}>", {{ xml_name|length + 2 }});
+{{ indent * 4 }}// XML: open tag with xmlns declarations
+{%- set xmlns_attrs = [] %}
+{%- if xmlns_declarations is defined %}
+{%- for prefix, uri in xmlns_declarations %}
+{%- set _ = xmlns_attrs.append(' xmlns:' + prefix + '="' + uri + '"') %}
+{%- endfor %}
+{%- endif %}
+{%- set open_tag = '<' + xml_name + xmlns_attrs|join('') + '>' %}
+{%- set open_tag_c = open_tag|replace('"', '\\"') %}
+{{ indent * 4 }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "{{ open_tag_c }}", {{ open_tag|length }});
 {%- endif %}
 {{ indent * 4 }}error = {{ function }}(stream, &{{ parameter }}{% if generate_xml_output %}, xmlOut, xmlOut_size, &xmlOut_pos{% endif %});
 {{ indent * 4 }}{{ parameter }}_isUsed = 1u;

@@ -1077,6 +1077,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                init_function=init_fn,
                                bits_to_read=bits,
                                decode_functions=decode_fn,
+                               xmlns_declarations=self.__xml_xmlns_declarations(),
                                end_fragment=end_fragment,
                                indent=self.indent)
         content += '\n'
@@ -1117,6 +1118,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                init_function=init_fn,
                                bits_to_read=bits,
                                decode_functions=decode_fn,
+                               xmlns_declarations=self.__xml_xmlns_declarations(),
                                end_fragment=end_fragment,
                                indent=self.indent)
         content += '\n'
