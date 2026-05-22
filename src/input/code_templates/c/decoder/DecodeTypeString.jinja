@@ -30,7 +30,11 @@
 {%- if not type_is_attribute %}
 {{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
 {%- endif %}
-{{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- if type_is_attribute %}
+{{ indent * (level + 5) }}xml_write_escaped_attr(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- else %}
+{{ indent * (level + 5) }}xml_write_escaped_text(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- endif %}
 {%- endif %}
 {{ indent * (level + 4) }}}
 {%- else %}
@@ -49,7 +53,11 @@
 {%- if not type_is_attribute %}
 {{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
 {%- endif %}
-{{ indent * (level + 5) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- if type_is_attribute %}
+{{ indent * (level + 5) }}xml_write_escaped_attr(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- else %}
+{{ indent * (level + 5) }}xml_write_escaped_text(xmlOut, xmlOut_size, xmlOut_pos, {{ type_chars }}, {{ type_length }});
+{%- endif %}
 {{ indent * (level + 4) }}}
 {%- endif %}
 {%- endif %}

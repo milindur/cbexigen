@@ -151,6 +151,19 @@ class ExiDecoderCode(ExiBaseCoderCode):
             return particle.name
         return self.__xml_prefixed_name(particle.namespace, particle.name)
 
+    @staticmethod
+    def __c_string_literal(value):
+        """Escape a Python string for use inside a generated C string literal."""
+        return (value.replace('\\', '\\\\')
+                     .replace('"', '\\"')
+                     .replace('\n', '\\n')
+                     .replace('\r', '\\r')
+                     .replace('\t', '\\t'))
+
+    def __xml_enum_literals(self, enum_values):
+        """Return enum literals as (C-escaped literal, original byte length) pairs."""
+        return [(self.__c_string_literal(value), len(value)) for value in enum_values]
+
     def __xml_open_tag_code(self, xml_name, level):
         """Generate C code for XML open tag (before element decode)"""
         tag = f'<{xml_name}'
@@ -608,7 +621,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_option=detail.particle.is_optional,
                                      type_value=type_value,
                                      type_enum=type_enum,
-                                     enum_values=detail.particle.enum_values,
+                                     enum_values=self.__xml_enum_literals(detail.particle.enum_values),
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -629,7 +642,7 @@ class ExiDecoderCode(ExiBaseCoderCode):
                                      type_attribute=detail.particle.is_attribute,
                                      type_value=type_value,
                                      type_enum=type_enum,
-                                     enum_values=detail.particle.enum_values,
+                                     enum_values=self.__xml_enum_literals(detail.particle.enum_values),
                                      next_grammar_id=next_grammar_id,
                                      indent=self.indent, level=level)
 
@@ -1140,6 +1153,29 @@ class ExiDecoderCode(ExiBaseCoderCode):
             self.__code_content += '    if (len > 0u) memcpy(xmlOut + *pos, str, len);\n'
             self.__code_content += '    *pos += len;\n'
             self.__code_content += '    xmlOut[*pos] = \'\\0\';\n'
+            self.__code_content += '}\n'
+            self.__code_content += ('static inline void xml_write_escaped(char* xmlOut, size_t xmlOut_size, '
+                                    'size_t* pos, const char* str, size_t len, int is_attribute) {\n')
+            self.__code_content += '    size_t i;\n'
+            self.__code_content += '    if (str == NULL) return;\n'
+            self.__code_content += '    for (i = 0u; i < len; i++) {\n'
+            self.__code_content += '        switch (str[i]) {\n'
+            self.__code_content += '        case \'&\': xml_write(xmlOut, xmlOut_size, pos, "&amp;", 5u); break;\n'
+            self.__code_content += '        case \'<\': xml_write(xmlOut, xmlOut_size, pos, "&lt;", 4u); break;\n'
+            self.__code_content += '        case \'>\': xml_write(xmlOut, xmlOut_size, pos, "&gt;", 4u); break;\n'
+            self.__code_content += '        case \'"\': if (is_attribute) { xml_write(xmlOut, xmlOut_size, pos, "&quot;", 6u); } else { xml_write(xmlOut, xmlOut_size, pos, &str[i], 1u); } break;\n'
+            self.__code_content += '        case \'\\\'\': if (is_attribute) { xml_write(xmlOut, xmlOut_size, pos, "&apos;", 6u); } else { xml_write(xmlOut, xmlOut_size, pos, &str[i], 1u); } break;\n'
+            self.__code_content += '        default: xml_write(xmlOut, xmlOut_size, pos, &str[i], 1u); break;\n'
+            self.__code_content += '        }\n'
+            self.__code_content += '    }\n'
+            self.__code_content += '}\n'
+            self.__code_content += ('static inline void xml_write_escaped_text(char* xmlOut, size_t xmlOut_size, '
+                                    'size_t* pos, const char* str, size_t len) {\n')
+            self.__code_content += '    xml_write_escaped(xmlOut, xmlOut_size, pos, str, len, 0);\n'
+            self.__code_content += '}\n'
+            self.__code_content += ('static inline void xml_write_escaped_attr(char* xmlOut, size_t xmlOut_size, '
+                                    'size_t* pos, const char* str, size_t len) {\n')
+            self.__code_content += '    xml_write_escaped(xmlOut, xmlOut_size, pos, str, len, 1);\n'
             self.__code_content += '}\n'
 
         analyzed_elements = {}

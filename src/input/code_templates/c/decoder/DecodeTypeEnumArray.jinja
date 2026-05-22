@@ -18,7 +18,7 @@
 {%- if enum_values %}
 {{ indent * (level + 4) }}switch (value) {
 {%- for ev in enum_values %}
-{{ indent * (level + 4) }}case {{ loop.index0 }}: xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{{ ev }}", {{ ev|length }}); break;
+{{ indent * (level + 4) }}case {{ loop.index0 }}: xml_write_escaped_text(xmlOut, xmlOut_size, xmlOut_pos, "{{ ev[0] }}", {{ ev[1] }}); break;
 {%- endfor %}
 {{ indent * (level + 4) }}default: { char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "%u", (unsigned int)value); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); } break;
 {{ indent * (level + 4) }}}

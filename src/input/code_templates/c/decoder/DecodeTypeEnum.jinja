@@ -18,11 +18,17 @@
 {%- endif %}
 {%- if generate_xml_output %}
 {{ indent * (level + 3) }}// XML: emit value
+{%- if type_attribute == 0 %}
 {{ indent * (level + 3) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
 {%- if enum_values %}
 {{ indent * (level + 3) }}switch (value) {
 {%- for ev in enum_values %}
-{{ indent * (level + 3) }}case {{ loop.index0 }}: xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{{ ev }}", {{ ev|length }}); break;
+{%- if type_attribute == 0 %}
+{{ indent * (level + 3) }}case {{ loop.index0 }}: xml_write_escaped_text(xmlOut, xmlOut_size, xmlOut_pos, "{{ ev[0] }}", {{ ev[1] }}); break;
+{%- else %}
+{{ indent * (level + 3) }}case {{ loop.index0 }}: xml_write_escaped_attr(xmlOut, xmlOut_size, xmlOut_pos, "{{ ev[0] }}", {{ ev[1] }}); break;
+{%- endif %}
 {%- endfor %}
 {{ indent * (level + 3) }}default: { char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), "%u", (unsigned int)value); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); } break;
 {{ indent * (level + 3) }}}
