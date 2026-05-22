@@ -162,8 +162,8 @@ class ExiDecoderCode(ExiBaseCoderCode):
                      .replace('\t', '\\t'))
 
     def __xml_enum_literals(self, enum_values):
-        """Return enum literals as (C-escaped literal, original byte length) pairs."""
-        return [(self.__c_string_literal(value), len(value)) for value in enum_values]
+        """Return enum literals as (C-escaped literal, UTF-8 byte length) pairs."""
+        return [(self.__c_string_literal(value), len(value.encode('utf-8'))) for value in enum_values]
 
     def __xml_attribute_name(self, particle):
         """Build XML attribute name like ns1:Name only when the attribute is qualified."""
