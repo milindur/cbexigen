@@ -43,7 +43,7 @@ def read_vectors():
     return vectors
 
 
-def generate(out_dir, drop_fragments=()):
+def generate(out_dir, drop_fragments=(), xml_output=False):
     """Run the generator into out_dir and return the generated code root."""
     # tools_config imports the config by module name, so it has to sit next to
     # the other modules on sys.path[0], which is src/ when main.py runs.
@@ -51,7 +51,8 @@ def generate(out_dir, drop_fragments=()):
     shutil.copyfile(CONFIG, staged)
     try:
         env = dict(os.environ, CBEXIGEN_TEST_OUT=str(out_dir),
-                   CBEXIGEN_TEST_DROP_FRAGMENTS=','.join(drop_fragments))
+                   CBEXIGEN_TEST_DROP_FRAGMENTS=','.join(drop_fragments),
+                   CBEXIGEN_TEST_XML='1' if xml_output else '0')
         result = subprocess.run(
             [sys.executable, str(SRC / 'main.py'), '--config_file', CONFIG.name],
             cwd=str(REPO), env=env, capture_output=True, text=True)
@@ -64,14 +65,14 @@ def generate(out_dir, drop_fragments=()):
     return Path(out_dir) / 'c'
 
 
-def compile_driver(code_root, out_dir):
+def compile_driver(code_root, out_dir, driver=DRIVER):
     compiler = os.environ.get('CC') or shutil.which('cc') or shutil.which('gcc')
     if compiler is None:
         raise unittest.SkipTest('no C compiler found')
-    binary = Path(out_dir) / 'emaid_fragment_driver'
+    binary = Path(out_dir) / driver.stem
     sources = sorted((code_root / 'common').glob('*.c')) + \
         sorted((code_root / 'iso-2').glob('*.c'))
-    command = [compiler, '-std=c11', '-O1', '-o', str(binary), str(DRIVER)] + \
+    command = [compiler, '-std=c11', '-O1', '-o', str(binary), str(driver)] + \
         [str(s) for s in sources] + \
         ['-I', str(code_root / 'common'), '-I', str(code_root / 'iso-2')]
     result = subprocess.run(command, capture_output=True, text=True)

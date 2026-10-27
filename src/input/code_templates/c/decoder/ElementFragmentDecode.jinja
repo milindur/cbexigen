@@ -16,7 +16,7 @@
 {{ indent * level }}}
 {%- endmacro -%}
 {% include 'ElementFragmentComment.jinja' %}
-static int decode_{{ struct_name }}(exi_bitstream_t* stream, struct {{ struct_name }}* {{ fragment.type }}) {
+static int decode_{{ struct_name }}(exi_bitstream_t* stream, struct {{ struct_name }}* {{ fragment.type }}{% if generate_xml_output %}, char* xmlOut, size_t xmlOut_size, size_t* xmlOut_pos{% endif %}) {
 {{ indent }}int grammar_id = 0;
 {{ indent }}int done = 0;
 {{ indent }}uint32_t eventCode;
@@ -40,6 +40,16 @@ static int decode_{{ struct_name }}(exi_bitstream_t* stream, struct {{ struct_na
 {{ indent * 5 }}// Event: AT({{ attribute.qname }}); next=ElementFragment_0
 {{ indent * 5 }}// decode: string (len, characters) (Attribute)
 {{ decode_string(attribute.name, prefix ~ attribute.define, 5) }}
+{%- if generate_xml_output %}
+{%- set attr_prefix = ' ' ~ xml_attribute_names[attribute.name] ~ '="' %}
+{{ indent * 5 }}if (error == 0)
+{{ indent * 5 }}{
+{{ indent * 6 }}// XML: attribute
+{{ indent * 6 }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "{{ attr_prefix|replace('"', '\\"') }}", {{ attr_prefix|length }});
+{{ indent * 6 }}xml_write_escaped_attr(xmlOut, xmlOut_size, xmlOut_pos, {{ fragment.type }}->{{ attribute.name }}.characters, {{ fragment.type }}->{{ attribute.name }}.charactersLen);
+{{ indent * 6 }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, "\"", 1);
+{{ indent * 5 }}}
+{%- endif %}
 {{ indent * 5 }}{{ fragment.type }}->{{ attribute.name }}_isUsed = 1u;
 {{ indent * 5 }}grammar_id = 0;
 {{ indent * 5 }}break;
@@ -49,6 +59,14 @@ static int decode_{{ struct_name }}(exi_bitstream_t* stream, struct {{ struct_na
 {{ indent * 5 }}// Event: CH [untyped value]; next=ElementFragment_1
 {{ indent * 5 }}// decode: string (len, characters)
 {{ decode_string('CONTENT', prefix ~ fragment.content_define, 5) }}
+{%- if generate_xml_output %}
+{{ indent * 5 }}if (error == 0)
+{{ indent * 5 }}{
+{{ indent * 6 }}// XML: emit string value
+{{ indent * 6 }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{{ indent * 6 }}xml_write_escaped_text(xmlOut, xmlOut_size, xmlOut_pos, {{ fragment.type }}->CONTENT.characters, {{ fragment.type }}->CONTENT.charactersLen);
+{{ indent * 5 }}}
+{%- endif %}
 {{ indent * 5 }}{{ fragment.type }}->CONTENT_isUsed = 1u;
 {{ indent * 5 }}grammar_id = 1;
 {{ indent * 5 }}break;

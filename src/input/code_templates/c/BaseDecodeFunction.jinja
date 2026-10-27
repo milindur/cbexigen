@@ -1,6 +1,6 @@
 {{ element_comment }}
 {{ particle_comment }}
-static int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ parameter_name }}) {
+static int {{ function_name }}(exi_bitstream_t* stream, struct {{ struct_type }}* {{ parameter_name }}{% if generate_xml_output %}, char* xmlOut, size_t xmlOut_size, size_t* xmlOut_pos{% endif %}) {
 {{ indent * level }}int grammar_id = {{ start_grammar_id }};
 {{ indent * level }}int done = 0;
 {{ indent * level }}uint32_t eventCode;

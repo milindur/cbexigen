@@ -38,6 +38,7 @@ class SchemaAnalyzer(object):
         self.__max_occurs_changed = analyzer_data.max_occurs_changed
         self.__namespace_elements = analyzer_data.namespace_elements
         self.__schema_builtin_types = analyzer_data.schema_builtin_types
+        self.__analyzer_data = analyzer_data
 
         self.config = CONFIG_PARAMS
         self.__schema_prefix = schema_prefix
@@ -54,6 +55,8 @@ class SchemaAnalyzer(object):
                                                          build=False)
 
         self.__current_schema.build()
+        self.__analyzer_data.element_form_default = self.__current_schema.element_form_default
+        self.__analyzer_data.attribute_form_default = self.__current_schema.attribute_form_default
 
     def close(self):
         if self.__schema_file is not None:
@@ -356,11 +359,20 @@ class SchemaAnalyzer(object):
 
         particle.name = attribute.local_name
 
-        ns = tools.extract_namespace_uri(getattr(attribute, 'name', ''))
-        if ns:
+        is_global = getattr(attribute, 'is_global', None)
+        if callable(is_global):
+            particle.is_global = bool(is_global())
+        elif is_global is not None:
+            particle.is_global = bool(is_global)
+
+        particle.attribute_qualified = bool(getattr(attribute, 'qualified', False) or particle.is_global)
+        if particle.attribute_qualified:
+            ns = tools.extract_namespace_uri(getattr(attribute, 'name', ''))
+            if not ns:
+                ns = getattr(attribute, 'target_namespace', '') or ''
+            if not ns:
+                ns = getattr(attribute, 'default_namespace', '') or ''
             particle.namespace = ns
-        elif hasattr(attribute, 'default_namespace') and attribute.default_namespace:
-            particle.namespace = attribute.default_namespace
 
         particle.type = self.__get_type_name(attribute)
         particle.type_short = self.__get_type_name_short(attribute)
@@ -396,6 +408,7 @@ class SchemaAnalyzer(object):
             if attribute.type.enumeration is not None:
                 particle.is_enum = True
                 particle.enum_count = len(attribute.type.enumeration)
+                particle.enum_values = list(attribute.type.enumeration)
 
                 element_data = self.__get_element_data_from_enum_attribute(attribute)
                 self.__generate_elements.append(element_data)
@@ -480,6 +493,7 @@ class SchemaAnalyzer(object):
             if element.type.enumeration is not None:
                 particle.is_enum = True
                 particle.enum_count = len(element.type.enumeration)
+                particle.enum_values = list(element.type.enumeration)
 
         self.__get_particle_integer_properties(particle, element)
 
@@ -545,6 +559,7 @@ class SchemaAnalyzer(object):
             if substitute.type.enumeration is not None:
                 particle.is_enum = True
                 particle.enum_count = len(substitute.type.enumeration)
+                particle.enum_values = list(substitute.type.enumeration)
 
         self.__get_particle_integer_properties(particle, element)
 
@@ -1072,8 +1087,9 @@ class SchemaAnalyzer(object):
             fragment = FragmentData()
             fragment.name = fragment_element.local_name
 
-            if fragment_element.name.find('{') == 0 and fragment_element.name.find('}') > 0:
-                fragment.namespace = fragment_element.name[1:fragment_element.name.index('}')]
+            ns = tools.extract_namespace_uri(fragment_element.name)
+            if ns:
+                fragment.namespace = ns
             else:
                 fragment.namespace = fragment_element.default_namespace
 

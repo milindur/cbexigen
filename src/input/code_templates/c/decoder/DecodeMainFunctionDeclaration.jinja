@@ -1,2 +1,2 @@
 {{ function_comment }}
-int {{ function_name }}(exi_bitstream_t* stream, struct {{ parameter_type }}* {{ parameter_name }});
+int {{ function_name }}(exi_bitstream_t* stream, struct {{ parameter_type }}* {{ parameter_name }}{% if generate_xml_output %}, char* xmlOut, size_t xmlOut_size{% endif %});

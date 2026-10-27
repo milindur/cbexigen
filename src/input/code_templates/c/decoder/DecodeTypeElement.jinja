@@ -3,7 +3,7 @@
 {{ indent * level }}// This element should not occur a further time, its representation was reduced to a single element
 {{ indent * level }}error = EXI_ERROR__ARRAY_OUT_OF_BOUNDS;
 {%- else %}
-{{ indent * level }}error = {{ decode_fn }}(stream, &{{ type_value }});
+{{ indent * level }}error = {{ decode_fn }}(stream, &{{ type_value }}{% if generate_xml_output %}, xmlOut, xmlOut_size, xmlOut_pos{% endif %});
 {{ indent * level }}if (error == 0)
 {{ indent * level }}{
 {%- if type_option == 1 %}

@@ -8,6 +8,13 @@
 {%- if type_option == 1 %}
 {{ indent * (level + 2) }}{{ type_value }}_isUsed = 1u;
 {%- endif %}
+{%- if generate_xml_output %}
+{{ indent * (level + 2) }}// XML: emit value
+{%- if not type_is_attribute %}
+{{ indent * (level + 2) }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
+{{ indent * (level + 2) }}xml_write_signed(xmlOut, xmlOut_size, xmlOut_pos, &{{ type_value }});
+{%- endif %}
 {{ indent * (level + 2) }}grammar_id = {{ next_grammar_id }};
 {{ indent * (level + 1) }}}
 {{ indent * (level + 1) }}error = exi_basetypes_decoder_nbit_uint(stream, 1, &eventCode);

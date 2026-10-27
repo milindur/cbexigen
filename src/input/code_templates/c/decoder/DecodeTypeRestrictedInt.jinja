@@ -1,3 +1,4 @@
+{%- import 'XmlOutput.jinja' as xml -%}
 {{ indent * level }}{{ decode_comment }}
 {{ indent * level }}error = exi_basetypes_decoder_nbit_uint(stream, 1, &eventCode);
 {{ indent * level }}if (error == 0)
@@ -16,6 +17,9 @@
 {%- endif %}
 {%- if type_option == 1 %}
 {{ indent * (level + 3) }}{{ type_value }}_isUsed = 1u;
+{%- endif %}
+{%- if generate_xml_output %}
+{{ xml.value(indent, level + 3, '"%d"', '(int)' ~ type_value, type_is_attribute) }}
 {%- endif %}
 {{ indent * (level + 2) }}}
 {{ indent * (level + 1) }}}

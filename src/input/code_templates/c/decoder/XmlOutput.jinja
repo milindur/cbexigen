@@ -1,0 +1,21 @@
+{#- Shared XML output snippets for decoder templates, used when generate_xml_output is set. -#}
+{% macro root_open(indent, level, xml_name, xmlns_attributes) -%}
+{%- set open_tag = '<' + xml_name + xmlns_attributes -%}
+{{ indent * level }}// XML: open tag with xmlns declarations, left unclosed so the decoder can add attributes
+{{ indent * level }}xml_tag_start = xmlOut_pos;
+{{ indent * level }}xml_write(xmlOut, xmlOut_size, &xmlOut_pos, "{{ open_tag|replace('"', '\\"') }}", {{ open_tag|length }});
+{%- endmacro %}
+{% macro root_close(indent, level, xml_name) -%}
+{{ indent * level }}// XML: close tag
+{{ indent * level }}if (error == 0)
+{{ indent * level }}{
+{{ indent * (level + 1) }}xml_end_tag(xmlOut, xmlOut_size, &xmlOut_pos, xml_tag_start, "</{{ xml_name }}>", {{ xml_name|length + 3 }});
+{{ indent * level }}}
+{%- endmacro %}
+{% macro value(indent, level, format, expression, is_attribute=false) -%}
+{{ indent * level }}// XML: emit value
+{%- if not is_attribute %}
+{{ indent * level }}xml_write(xmlOut, xmlOut_size, xmlOut_pos, ">", 1);
+{%- endif %}
+{{ indent * level }}{ char _xv[64]; int _xl = snprintf(_xv, sizeof(_xv), {{ format }}, {{ expression }}); xml_write(xmlOut, xmlOut_size, xmlOut_pos, _xv, _xl); }
+{%- endmacro %}

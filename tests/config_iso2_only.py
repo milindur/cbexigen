@@ -10,6 +10,7 @@ is dropped because it has no ambiguous element and only costs run time here.
 Output and log directories come from CBEXIGEN_TEST_OUT so the test can generate
 into a scratch directory instead of the source tree. CBEXIGEN_TEST_DROP_FRAGMENTS,
 a comma separated list, removes those names from iso2_fragments.
+CBEXIGEN_TEST_XML=1 enables the decoder XML output.
 """
 import os
 
@@ -27,3 +28,4 @@ c_files_to_generate = {
 
 _drop = [name for name in os.environ.get('CBEXIGEN_TEST_DROP_FRAGMENTS', '').split(',') if name]
 iso2_fragments = [name for name in iso2_fragments if name not in _drop]  # noqa: F405
+generate_xml_output = int(os.environ.get('CBEXIGEN_TEST_XML', '0'))

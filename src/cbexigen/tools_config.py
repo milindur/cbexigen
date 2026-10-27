@@ -46,6 +46,8 @@ CONFIG_PARAMS: Dict[str, Union[str, int]] = {
     'fragment_parameter_name': 'exiFrag',
     'xmldsig_fragment_struct_name': 'xmldsigFragment',
     'xmldsig_fragment_parameter_name': 'xmldsigFrag',
+    # generate XML output in decoder
+    'generate_xml_output': 0,
     # general c-code style
     'c_code_indent_chars': 4,
     'c_replace_chars': [' ', '-'],
@@ -178,6 +180,10 @@ def process_config_parameters():
     # xmldsig_fragment_parameter_name
     if hasattr(config_module, 'xmldsig_fragment_parameter_name'):
         CONFIG_PARAMS['xmldsig_fragment_parameter_name'] = config_module.xmldsig_fragment_parameter_name
+
+    ''' XML output in decoder '''
+    if hasattr(config_module, 'generate_xml_output'):
+        CONFIG_PARAMS['generate_xml_output'] = config_module.generate_xml_output
 
     ''' general c-code style '''
     # c_code_indent_chars (number of spaces)
